@@ -103,6 +103,7 @@ class Graph:
         self.adj_dict_ = adj_dict
         self.vertices_ = set(adj_dict.keys())
         self.M_ = self._deTLaM(adj_dict)
+        self.edges_ = []
         for v in adj_dict:
             self.edges_.extend([(v, u) for u in adj_dict[v]]) 
 
