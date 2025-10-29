@@ -82,6 +82,26 @@ class Graph:
                     dictM[begin].append(end)
         return dictM   
 
+    def _arcs(self):
+        """
+            Extract the list of the edges of a valuated graph
+            given by its distances matrix
+
+            Args:
+            
+            Returns:
+                arcs (list) : The list of tuples representing all
+                edges of the graph represented by the the matrix M
+                in the form (begin, end, weight)
+        """
+        arcs = []
+        for i in range(self.size_):
+            for j in range(self.size_):
+                # Check if there is an edge from i to j
+                if self.M_[i, j] < np.inf:
+                    arcs.append((i, j, float(self.M_[i,j])))
+        return arcs
+
     def load_from_matrix(self, M, valued=False):
         assert M.shape[0] == M.shape[1], "M must be a square matrix" 
         n = M.shape[0]
@@ -121,25 +141,43 @@ class Graph:
         if index < 0 or index >= n:
             raise ValueError("index out of range")    
 
-    def plot_graph(self, show=True):
+    def plot_graph(self, seed=42, show=True):
         """
-        Display the graph
+        Display the graph.
 
         Args:
-            show (bool, optional) : show the graph          
+            seed (int, optional): Seed for layout reproducibility. Default 42.
+            show (bool, optional): Whether to display the graph immediately. Default True.
         """
-        # Création du graphe
-        G = nx.Graph()
-        G.add_edges_from(self.edges_)
 
-        # Dispatch nodes pseudo-randomly from seed
-        pos = nx.spring_layout(G, seed=42)
-        nx.draw_networkx_nodes(G, pos, node_size=500, node_color='lightblue')
+        # Choix du type de graphe
+        G = nx.DiGraph() if self.oriented_ else nx.Graph()
 
-        nx.draw_networkx_edges(G, pos, width=2)
-        nx.draw_networkx_labels(G, pos, font_size=12, font_color='black')
-        plt.title("Graphe View")
+        # Ajout des arêtes
+        if self.valued_:
+            G.add_weighted_edges_from(self._arcs())
+        else:
+            for u, neighbors in self.adj_dict_.items():
+                for v in neighbors:
+                    G.add_edge(u, v)
+
+        # Layout
+        pos = nx.spring_layout(G, seed=seed)
+
+        # Dessin des nœuds et arêtes
+        nx.draw(
+            G, pos, with_labels=True, node_color='skyblue', 
+            node_size=1200, font_weight='bold', arrows=self.oriented_
+        )
+
+        # Étiquettes des poids si pondéré
+        if self.valued_:
+            edge_labels = nx.get_edge_attributes(G, 'weight')
+            nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_color='red')
+
+        plt.title("Graph View")
         plt.axis('off')
+        
         if show:
             plt.show()
 
@@ -160,7 +198,6 @@ class Graph:
                 Otherwise it returns []
         '''
         P = P.copy()
-        P -= 1
         i -= 1
         j -= 1
         Graph._check_pre_condition(i, len(P))
@@ -195,11 +232,7 @@ class Graph:
 
         '''
         Graph._check_pre_condition(u, self.size_)
-        succ = []
-        for edge in self.edges_:
-            if edge[0] == u:
-                succ.append(edge[1])
-        return np.array(succ)
+        return np.array(self.adj_dict_.get(u, []))
     
     def shortest_path_from_origin(self, pi, dest, origin = 0):
         '''
@@ -330,11 +363,11 @@ class Graph:
 
         for k in range(self.size_):
             if verbose:
-                print(f"R{k} :")
-                print(R.astype(int))
-                print(f"P{k} :")
-                print(P+1)
-                print("\n")
+                print(f"     R{k}                P{k}")
+                for r, p in zip(R.astype(int), P+1):
+                    print(f"{r}     {p}")
+            print("_________")        
+
             for i in range(self.size_):
                 for j in range(self.size_):
                     # If R^k[i, j] than R^(k+1)[i, j]
@@ -396,11 +429,10 @@ class Graph:
 
         for k in range(self.size_):
             if verbose:
-                print(f"D^{k} :")
-                print(D)
-                print(f"P^{k} :")
-                print(P+1)
-                print("\n")
+                print(f"          D{k}                  P{k}")
+                for r, p in zip(D, P+1):
+                    print(f"{r}     {p}")
+                print("_________")    
             for i in range(self.size_):
                 for j in range(self.size_):
                     if D[i, j] > D[i, k] + D[k, j]:
@@ -437,7 +469,7 @@ class Graph:
         '''
         Graph._check_pre_condition(origin, self.size_)
         assert np.all(self.M_ >= 0), "The Distance Matrix must contains only positive numbers"
-        # n represents the number of sommets
+        # n represents the number of vertices
         n = self.size_
 
         # Initialise the distances and predecessors arrays
@@ -474,7 +506,7 @@ class Graph:
             if verbose:
                 print('_________')
                 print(f"iter_{i} :")
-                print(f"vertex_{u+1} :")
+                print(f"vertex_{u} :")
                 print(f"distances array : \n{d}")
                 print(f"predecessors array : \n{pi+1}")
                 print(f"opens array : \n{O}")
