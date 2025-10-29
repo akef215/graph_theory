@@ -31,13 +31,14 @@ class Graph:
             valued (boolean) : True if the Graph is valued.
                 False, otherwisr.
                 Default is False
+            M (ndarray(n, n)) : The matrix representation of the graph G    
             adj_dict (dict) : The adjacency list of the graph G
                 {vertex : [neighbours_of_vertex]}    
     """
 
     # Constructor
     def __init__(self, oriented=False, valued=False):
-        self.vertices_ = {} 
+        self.vertices_ = set() 
         self.edges_ = []
         self.size_ = 0
         self.w_ = None
@@ -46,7 +47,7 @@ class Graph:
         self.M_ = None
         self.adj_dict_ = None
 
-    def deTLaM(self, adj_dict):
+    def _deTLaM(self, adj_dict):
         n = len(adj_dict)
         M = np.zeros((n,n), dtype=int)
         for i in adj_dict:
@@ -54,7 +55,7 @@ class Graph:
                 M[i][j] = 1
         return M 
 
-    def deMaTL(self, M):
+    def _deMaTL(self, M):
         """
             Transform the adjacency matrix representation to
             the dictionnary representation
@@ -85,27 +86,28 @@ class Graph:
         assert M.shape[0] == M.shape[1], "M must be a square matrix" 
         n = M.shape[0]
         self.size_ = n
-        self.vertices_ = range(n)
+        self.vertices_ = set(range(n))
         self.M_ = M
         self.valued_ = valued
         if self.valued_:
             self.edges_ = [(i, j) for i in range(n) for j in range(n) \
                        if M[i, j] < np.inf]
         else:
-            self.adj_dict_ = self.deMaTL(M)
+            self.adj_dict_ = self._deMaTL(M)
             self.edges_ = [(i, j) for i in range(n) for j in range(n) \
                        if M[i, j] == True]
             
     def load_from_dict(self, adj_dict):
-        n = max(adj_dict)
+        n = max(adj_dict.keys()) + 1
         self.size_ = n
-        self.vertices_ = set(adj_dict.keys)
-        self.deTLaM(adj_dict)
+        self.adj_dict_ = adj_dict
+        self.vertices_ = set(adj_dict.keys())
+        self.M_ = self._deTLaM(adj_dict)
         for v in adj_dict:
             self.edges_.extend([(v, u) for u in adj_dict[v]]) 
 
     @staticmethod
-    def check_pre_condition(index, n):
+    def _check_pre_condition(index, n):
         """
             check if an index is in range (0, n) 
 
@@ -160,8 +162,8 @@ class Graph:
         P -= 1
         i -= 1
         j -= 1
-        Graph.check_pre_condition(i, len(P))
-        Graph.check_pre_condition(j, len(P))
+        Graph._check_pre_condition(i, len(P))
+        Graph._check_pre_condition(j, len(P))
         
         # We initialise with the destination node
         path = [j+1]
@@ -191,7 +193,7 @@ class Graph:
                 ValueError if the vertex u doesn't belong to the vertices set
 
         '''
-        Graph.check_pre_condition(u, self.size_)
+        Graph._check_pre_condition(u, self.size_)
         succ = []
         for edge in self.edges_:
             if edge[0] == u:
@@ -200,20 +202,20 @@ class Graph:
     
     def shortest_path_from_origin(self, pi, dest, origin = 0):
         '''
-            Find the shortest path from the node origin to the node dest
+            Find the shortest path from the vertex origin to the vertex dest
 
             Args:
-                dest (int) : The node of the end
-                pi (ndarray(n)) : The predecessors in the shortest path from the node s
-                origin (int, optional) : The node of the origin of the shortest path.
+                dest (int) : The vertex of the end
+                pi (ndarray(n)) : The predecessors in the shortest path from the vertex s
+                origin (int, optional) : The vertex of the origin of the shortest path.
                 Default is 0
 
             Raise:
-                ValueError if the origin node origin or the node dest
-                don't belong to the nodes set
+                ValueError if the origin vertex origin or the vertex dest
+                don't belong to the vertices set
 
             Returns:
-                path (list) : The shortest path from the node origin to the node dest
+                path (list) : The shortest path from the vertex origin to the vertex dest
                 If there is no path from origin to dest return an empty array
 
         '''
@@ -221,8 +223,8 @@ class Graph:
         origin -= 1
         pi = pi.copy()
         pi -= 1
-        Graph.check_pre_condition(origin, len(pi))
-        Graph.check_pre_condition(dest, len(pi))
+        Graph._check_pre_condition(origin, len(pi))
+        Graph._check_pre_condition(dest, len(pi))
         if dest == origin:
             return [dest + 1]
         
@@ -238,7 +240,7 @@ class Graph:
 
         return path  
 
-    def init_dijkstra(self, s=0):
+    def _init_dijkstra(self, s=0):
         '''
             Initialise the distance and predecessors arrays
 
@@ -256,15 +258,15 @@ class Graph:
                 pi (ndarray(1, n)) : The initialised The predecessors in the shortest 
                 path from the node s array
         '''
-        Graph.check_pre_condition(s, n)
-        # The number of vertices
         n = self.size_
+        Graph._check_pre_condition(s, n)
+        # The number of vertices
         d = np.ones(n) * np.inf
         d[s] = 0
         pi = np.full(n, -1)
         return d, pi 
 
-    def relacher(self, u, v, d, pi):
+    def _relacher(self, u, v, d, pi):
         '''
             The Edge Relaxation procedure
             
@@ -279,8 +281,8 @@ class Graph:
             Raise:
                 ValueError if the nodes u and v don't belong to the nodes set
         '''
-        Graph.check_pre_condition(u, self.size_)
-        Graph.check_pre_condition(v, self.size_)
+        Graph._check_pre_condition(u, self.size_)
+        Graph._check_pre_condition(v, self.size_)
         
         if d[v] > d[u] + self.M_[u, v]:
             d[v] = d[u] + self.M_[u, v]
@@ -341,7 +343,7 @@ class Graph:
                         P[i, j] = P[k, j] 
 
         # R^(M.shape[0]) represents the accessibility matrix                
-        return R, P+1
+        return R, P
 
     def floyd_warshall(self, verbose=False):
         '''
@@ -409,15 +411,15 @@ class Graph:
                     raise ValueError(f"The matrix contains negative weight cycles\n\
                                     The cycle is : {self.find_path(P+1, index, index)}")
         # D^(self.size_) represents the matrix of shortest path distances                
-        return D, P+1  
+        return D, P 
 
-    def dijkstra(self, origin=1, verbose=False):
+    def dijkstra(self, origin=0, verbose=False):
         '''
             An implementation of the Dijkstra Algorithm
 
             Args:
                 origin (int, optional) : The node of the origin of the shortest path.
-                Default is 1
+                Default is 0
                 verbose (boolean, optional) : Return the intermediate 
                 d, pi, O and F arrays
                 Default is False
@@ -432,15 +434,13 @@ class Graph:
                 from the node origin
 
         '''
-        # Align with the python array indexation
-        origin -= 1
-        Graph.check_pre_condition(origin, self.size_)
+        Graph._check_pre_condition(origin, self.size_)
         assert np.all(self.M_ >= 0), "The Distance Matrix must contains only positive numbers"
         # n represents the number of sommets
         n = self.size_
 
         # Initialise the distances and predecessors arrays
-        d, pi = self.init_dijkstra(origin)
+        d, pi = self._init_dijkstra(origin)
 
         # Initialise the Opens and Closed arrays
         O = np.zeros(n).astype(bool)
@@ -462,10 +462,10 @@ class Graph:
                 break
             # Take the minimum u, in term of distance d[u]
             u = boucle[np.argmin(d[boucle])]
-            succ = self.next(self.M_, u)
+            succ = self.next(u)
             
             for v in succ:
-                self.relacher(u, v, d, pi)
+                self._relacher(u, v, d, pi)
                 O[v] = True
             
             # Update the Closed array
@@ -479,16 +479,16 @@ class Graph:
                 print(f"opens array : \n{O}")
                 print(f"closed array : \n{F}")
         
-        return d, pi+1   
+        return d, pi  
 
-    def bellman_Ford(self, origin=1):
+    def bellman_Ford(self, origin=0):
         """
             An implementation of the Bellman-Ford algorithm
             to find the shortest path from the origin node
 
             Args:
                 origin (int, optional) : The origin node
-                Default is 1
+                Default is 0
             
             Returns:
                 d (ndarray(n)) : The shortest distances from the origin
@@ -496,15 +496,14 @@ class Graph:
                 pi (ndarray(n)) : The predecessor in the shortest path
                 from the origin node array
         """
-        origin -= 1
         # Initialisation of the distances and predecessors arrays
-        d, pi = self.init_dijkstra(self.size_, origin)
+        d, pi = self._init_dijkstra(origin)
 
         for init, final, _ in self.edges_:
             # The relaxation process for each edge of the graph
-            self.relacher(init, final, d, pi)
+            self._relacher(init, final, d, pi)
             
-        return d, pi+1
+        return d, pi
     
     def visited_init(self):
         '''
@@ -543,7 +542,7 @@ class Graph:
                 the description above 
         '''
         # Check that the origin belongs to the vertices set
-        Graph.check_pre_condition(origin, self.size_)
+        Graph._check_pre_condition(origin, self.size_)
 
         # Check the length of the visited array
         assert len(visited) == self.size_, "The length of visited must be \
@@ -559,7 +558,7 @@ class Graph:
         for neighbour in self.adj_dict_[origin]:
             if not visited[neighbour]:
                 # The recursive call
-                self.depth_first_search(self.adj_dict_, neighbour, visited, out, post)
+                self.depth_first_search(neighbour, visited, out, post)
         if post:        
             # add it to the output list
             out.append(int(origin)) 
@@ -581,13 +580,13 @@ class Graph:
         
         for origin in range(self.size_):
             if not visited[origin]:
-                self.depth_first_search(self.adj_dict_, origin, visited, out, post)
+                self.depth_first_search(origin, visited, out, post)
             if np.all(visited):
                 break
 
         return out
     
-    def bredth_first_search(self, origin):
+    def breadth_first_search(self, origin):
         '''
             The Breadth First Search for a graph G executed from an 
             origin vertex
@@ -602,7 +601,7 @@ class Graph:
                 out (list) : The vertices visited and ordered by the BFS
         '''
         # Check that the origin belongs to the vertices set
-        Graph.check_pre_condition(origin, self.size_)
+        Graph._check_pre_condition(origin, self.size_)
         
         # Visited boolean array to avoid processing the same 
         # vertex more than one time
@@ -743,7 +742,7 @@ class Graph:
         out = []  
 
         # Choose the order of vertices
-        vertices = self.vertices_   
+        vertices = np.array(list(self.vertices_), dtype=int)   
         if random:
             np.random.shuffle(vertices)  
                             
@@ -811,7 +810,7 @@ class Graph:
                 
         return True
     
-    def discrete_forest(self):
+    def _discrete_forest(self):
         '''
             Discrete Forest of a graph G, each vertex is considered as an arborescence
 
@@ -820,22 +819,20 @@ class Graph:
             Returns:
                 pi (ndarray(|G|)) : The array of predecessors of G
         '''
-        max_ = max(max(u, v) for u, v in self.edges_)
+        max_ = max(max(u, v) for u, v in self.edges_) + 1
         return -np.ones(shape=max_, dtype=int)
 
-    def root(self, pi, v):
+    def _root(self, pi, v):
         """
             Find the root of a node v using the predecessors list
         """
-        # align v with the python indexing
-        v -= 1 
         # we loop until reaching the root caracterized by pi[root] == -1
         while pi[v] != -1:
             # we keep going up in the arborescence
             v = pi[v]
         return v
 
-    def union(self, pi, r1, r2):
+    def _union(self, pi, r1, r2):
         """
             Attach the node r1 to r2
 
@@ -865,17 +862,17 @@ class Graph:
                 of the graph        
         """
         # initialise a discrete forest
-        pi = self.discrete_forest()
+        pi = self._discrete_forest()
 
         for v_begin, v_end in self.edges_:
             # Find part:
             # find the roots of the extremeties of the edges
             # in the random forest 
-            r1 = self.root(pi, v_begin)
-            r2 = self.root(pi, v_end)
+            r1 = self._root(pi, v_begin)
+            r2 = self._root(pi, v_end)
 
             # Union part:
-            self.union(pi, r1, r2)
+            self._union(pi, r1, r2)
 
             if verbose:
                 print(f"Union {r1} and {r2}: {pi}")
