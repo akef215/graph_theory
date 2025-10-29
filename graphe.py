@@ -31,15 +31,78 @@ class Graph:
             valued (boolean) : True if the Graph is valued.
                 False, otherwisr.
                 Default is False
+            adj_dict (dict) : The adjacency list of the graph G
+                {vertex : [neighbours_of_vertex]}    
     """
-    
+
     # Constructor
-    def __init__():
-        vertices_ = {} 
-        edges_ = []
-        w_ = None
-        oriend_ = False
-        valued_ = False
+    def __init__(self, oriented=False, valued=False):
+        self.vertices_ = {} 
+        self.edges_ = []
+        self.size_ = 0
+        self.w_ = None
+        self.oriented_ = oriented
+        self.valued_ = valued
+        self.M_ = None
+        self.adj_dict_ = None
+
+    def deTLaM(self, adj_dict):
+        n = len(adj_dict)
+        M = np.zeros((n,n), dtype=int)
+        for i in adj_dict:
+            for j in adj_dict[i]:
+                M[i][j] = 1
+        return M 
+
+    def deMaTL(self, M):
+        """
+            Transform the adjacency matrix representation to
+            the dictionnary representation
+
+            Args:
+                M (ndarray(n, n)) : The adjacency matrix
+                plusOne (bool, optional) : True if we generate the dictionnary
+                in the human readable convention {1 .. n}. Otherwise {0 .. n-1}
+                Default is True
+
+            Returns:
+                dictM (dict) : a dictionnary of successors lists
+
+        """
+        dictM = {}
+        n = M.shape[0]
+        for i in range(n):
+            # Initialisation of the dict
+            begin = i
+            dictM[begin] = [] 
+            for j in range(n):
+                end = j  
+                if M[i,j] == 1:
+                    dictM[begin].append(end)
+        return dictM   
+
+    def load_from_matrix(self, M, valued=False):
+        assert M.shape[0] == M.shape[1], "M must be a square matrix" 
+        n = M.shape[0]
+        self.size_ = n
+        self.vertices_ = range(n)
+        self.M_ = M
+        self.valued_ = valued
+        if self.valued_:
+            self.edges_ = [(i, j) for i in range(n) for j in range(n) \
+                       if M[i, j] < np.inf]
+        else:
+            self.adj_dict_ = self.deMaTL(M)
+            self.edges_ = [(i, j) for i in range(n) for j in range(n) \
+                       if M[i, j] == True]
+            
+    def load_from_dict(self, adj_dict):
+        n = max(adj_dict)
+        self.size_ = n
+        self.vertices_ = set(adj_dict.keys)
+        self.deTLaM(adj_dict)
+        for v in adj_dict:
+            self.edges_.extend([(v, u) for u in adj_dict[v]]) 
 
     @staticmethod
     def check_pre_condition(index, n):
@@ -128,7 +191,7 @@ class Graph:
                 ValueError if the vertex u doesn't belong to the vertices set
 
         '''
-        Graph.check_pre_condition(u, len(self.vertices_))
+        Graph.check_pre_condition(u, self.size_)
         succ = []
         for edge in self.edges_:
             if edge[0] == u:
@@ -175,7 +238,7 @@ class Graph:
 
         return path  
 
-    def init_dijkstra(self, s = 0):
+    def init_dijkstra(self, s=0):
         '''
             Initialise the distance and predecessors arrays
 
@@ -195,13 +258,13 @@ class Graph:
         '''
         Graph.check_pre_condition(s, n)
         # The number of vertices
-        n = len(self.vertices_)
+        n = self.size_
         d = np.ones(n) * np.inf
         d[s] = 0
         pi = np.full(n, -1)
         return d, pi 
 
-    def relacher(self, MD, u, v, d, pi):
+    def relacher(self, u, v, d, pi):
         '''
             The Edge Relaxation procedure
             
@@ -216,21 +279,20 @@ class Graph:
             Raise:
                 ValueError if the nodes u and v don't belong to the nodes set
         '''
-        Graph.check_pre_condition(u, MD.shape[0])
-        Graph.check_pre_condition(v, MD.shape[0])
+        Graph.check_pre_condition(u, self.size_)
+        Graph.check_pre_condition(v, self.size_)
         
-        if d[v] > d[u] + MD[u, v]:
-            d[v] = d[u] + MD[u, v]
+        if d[v] > d[u] + self.M_[u, v]:
+            d[v] = d[u] + self.M_[u, v]
             pi[v] = u   
 
-    def roy_warshall(self, M, verbose=False):
+    def roy_warshall(self, verbose=False):
         '''
             An implementation of the Roy-Warshall algorithm
             to determine the accessibility matrix modified
             to return the matrix of predecessors too
 
             Args:
-                M (ndarray(n, n)) : Adjacency matrix 
                 verbose (boolean, optional) : Return the intermediate 
                 R^k and P^k for k in {0 ... n-1}
                 Default is False
@@ -252,26 +314,26 @@ class Graph:
         #   -1 if such a path doesn't exist
 
         # Initialise R^0
-        R = M.astype(bool).copy()
+        R = self.M_.astype(bool).copy()
         # Trivial paths
         np.fill_diagonal(R, True)
 
         # Initialise P^0
-        P = np.zeros(M.shape, dtype=int)
-        for i in range(M.shape[0]):
-            for j in range(M.shape[0]):
+        P = np.zeros(self.M_.shape, dtype=int)
+        for i in range(self.size_):
+            for j in range(self.size_):
                 # -1 for no predecessor
                 P[i, j] = i if R[i, j] else -1
 
-        for k in range(M.shape[0]):
+        for k in range(self.size_):
             if verbose:
                 print(f"R{k} :")
                 print(R.astype(int))
                 print(f"P{k} :")
                 print(P+1)
                 print("\n")
-            for i in range(M.shape[0]):
-                for j in range(M.shape[0]):
+            for i in range(self.size_):
+                for j in range(self.size_):
                     # If R^k[i, j] than R^(k+1)[i, j]
                     # The case of updating !R^k[i, j]
                     if not R[i, j] and R[i, k] and R[k, j]:
@@ -281,14 +343,13 @@ class Graph:
         # R^(M.shape[0]) represents the accessibility matrix                
         return R, P+1
 
-    def floyd_warshall(self, M, verbose=False):
+    def floyd_warshall(self, verbose=False):
         '''
             An implementation of the Floyd-Warshall algorithm
             to determine the shortest distance matrix modified
             to return the matrix of predecessors too
 
             Args:
-                M (ndarray(n, n)) : Weighted adjacency matrix 
                 verbose (boolean, optional) : Return the intermediate 
                 D^k and P^k for k in {0 ... n-1}
                 Default is False
@@ -313,32 +374,32 @@ class Graph:
         #   -1 if such a path doesn't exist
 
         # Check if there are any trivial absorbant cycle
-        neg = np.where(np.diag(M) < 0)[0]
+        neg = np.where(np.diag(self.M_) < 0)[0]
         if len(neg) != 0:
             index = int(neg[0])+1
             raise ValueError(f"The matrix contains negative weight cycles\n\
                 The cycle is : ({index})")
         
         # Initialise D^0
-        D = M.copy()
+        D = self.M_.copy()
         np.fill_diagonal(D, 0)
 
         # Initialise P^0
-        P = np.full(M.shape, -1, dtype=int)
-        for i in range(M.shape[0]):
-            for j in range(M.shape[0]):
+        P = np.full(self.M_.shape, -1, dtype=int)
+        for i in range(self.size_):
+            for j in range(self.size_):
                 # -1 for no predecessor
                 if D[i, j] < np.inf: P[i, j] = i
 
-        for k in range(M.shape[0]):
+        for k in range(self.size_):
             if verbose:
                 print(f"D^{k} :")
                 print(D)
                 print(f"P^{k} :")
                 print(P+1)
                 print("\n")
-            for i in range(M.shape[0]):
-                for j in range(M.shape[0]):
+            for i in range(self.size_):
+                for j in range(self.size_):
                     if D[i, j] > D[i, k] + D[k, j]:
                         D[i, j] = D[i, k] + D[k, j] 
                         P[i, j] = P[k, j] 
@@ -347,15 +408,14 @@ class Graph:
                     index = int(neg[0])+1
                     raise ValueError(f"The matrix contains negative weight cycles\n\
                                     The cycle is : {self.find_path(P+1, index, index)}")
-        # D^(M.shape[0]) represents the matrix of shortest path distances                
+        # D^(self.size_) represents the matrix of shortest path distances                
         return D, P+1  
 
-    def dijkstra(self, MD, origin=1, verbose=False):
+    def dijkstra(self, origin=1, verbose=False):
         '''
             An implementation of the Dijkstra Algorithm
 
             Args:
-                MD (ndarray(n, n)) : The distance matrix representing the graph G
                 origin (int, optional) : The node of the origin of the shortest path.
                 Default is 1
                 verbose (boolean, optional) : Return the intermediate 
@@ -374,10 +434,10 @@ class Graph:
         '''
         # Align with the python array indexation
         origin -= 1
-        Graph.check_pre_condition(origin, MD.shape[0])
-        assert np.all(MD >= 0), "The Distance Matrix must contains only positive numbers"
+        Graph.check_pre_condition(origin, self.size_)
+        assert np.all(self.M_ >= 0), "The Distance Matrix must contains only positive numbers"
         # n represents the number of sommets
-        n = MD.shape[0]
+        n = self.size_
 
         # Initialise the distances and predecessors arrays
         d, pi = self.init_dijkstra(origin)
@@ -402,10 +462,10 @@ class Graph:
                 break
             # Take the minimum u, in term of distance d[u]
             u = boucle[np.argmin(d[boucle])]
-            succ = self.next(MD, u)
+            succ = self.next(self.M_, u)
             
             for v in succ:
-                self.relacher(MD, u, v, d, pi)
+                self.relacher(u, v, d, pi)
                 O[v] = True
             
             # Update the Closed array
@@ -421,13 +481,12 @@ class Graph:
         
         return d, pi+1   
 
-    def bellman_Ford(self, M, origin=1):
+    def bellman_Ford(self, origin=1):
         """
             An implementation of the Bellman-Ford algorithm
             to find the shortest path from the origin node
 
             Args:
-                M (ndarray(n, n)) : The distances matrix
                 origin (int, optional) : The origin node
                 Default is 1
             
@@ -439,11 +498,11 @@ class Graph:
         """
         origin -= 1
         # Initialisation of the distances and predecessors arrays
-        d, pi = self.init_dijkstra(M.shape[0], origin)
+        d, pi = self.init_dijkstra(self.size_, origin)
 
         for init, final, _ in self.edges_:
             # The relaxation process for each edge of the graph
-            self.relacher(M, init, final, d, pi)
+            self.relacher(init, final, d, pi)
             
         return d, pi+1
     
@@ -458,16 +517,14 @@ class Graph:
                 visited (list) : The initialised visited list 
                 s.t. (np.all(visited==False) is np.True_)
         '''
-        return np.zeros(len(self.vertices_)).astype(bool)
+        return np.zeros(self.size_).astype(bool)
     
-    def depth_first_search(self, adj_dict, origin, visited, out, post=False):
+    def depth_first_search(self, origin, visited, out, post=False):
         '''
             The Depth First Traversal of a weighted oriented Graph
             from an origin vertex
 
             Args:
-                adj_dict (dict) : The adjacency list of the graph G
-                {vertex : [neighbours_of_vertex]}
                 origin (int) : The vertex from where we will start the traversal
                 visited (list) : The initialisation of the visited array
                 it must be a list of booleans all False
@@ -486,11 +543,11 @@ class Graph:
                 the description above 
         '''
         # Check that the origin belongs to the vertices set
-        Graph.check_pre_condition(origin, len(adj_dict))
+        Graph.check_pre_condition(origin, self.size_)
 
         # Check the length of the visited array
-        assert len(visited) == len(adj_dict), "The length of visited must be equals to\
-            the length of adj_dict"
+        assert len(visited) == self.size_, "The length of visited must be \
+            equals to the length of adj_dict"
         
         # change the state of the current vertex to visited
         visited[origin] = True
@@ -499,21 +556,19 @@ class Graph:
             out.append(int(origin)) 
         
         # Traverse the neighbours of the current vertex
-        for neighbour in adj_dict[origin]:
+        for neighbour in self.adj_dict_[origin]:
             if not visited[neighbour]:
                 # The recursive call
-                self.depth_first_search(adj_dict, neighbour, visited, out, post)
+                self.depth_first_search(self.adj_dict_, neighbour, visited, out, post)
         if post:        
             # add it to the output list
             out.append(int(origin)) 
     
-    def dfs(self, adj_dict, post=False):
+    def dfs(self, post=False):
         '''
             The Depth First Traversal of a weighted oriented Graph
 
             Args:
-                adj_dict (dict) : The adjacency list of the graph G
-                {vertex : [neighbours_of_vertex]}
                 post (bool, optional) : If True we'll make a post order traversal.
                 Default is False
     
@@ -524,22 +579,20 @@ class Graph:
         visited = self.visited_init()
         out = []                           
         
-        for origin in range(len(adj_dict)):
+        for origin in range(self.size_):
             if not visited[origin]:
-                self.depth_first_search(adj_dict, origin, visited, out, post)
+                self.depth_first_search(self.adj_dict_, origin, visited, out, post)
             if np.all(visited):
                 break
 
         return out
     
-    def bredth_first_search(self, adj_dict, origin):
+    def bredth_first_search(self, origin):
         '''
-            The Breadth First Search for a graph G given
-            by its adjacency list executed from a vertex origin
+            The Breadth First Search for a graph G executed from an 
+            origin vertex
 
             Args:
-                adj_dict (dict) : The adjacency list of the graph G
-                {vertex : [neighbours_of_vertex]}
                 origin (int) : The vertex on which we will start the BFS
             
             Raise:
@@ -549,7 +602,7 @@ class Graph:
                 out (list) : The vertices visited and ordered by the BFS
         '''
         # Check that the origin belongs to the vertices set
-        Graph.check_pre_condition(origin, len(self.vertices_))
+        Graph.check_pre_condition(origin, self.size_)
         
         # Visited boolean array to avoid processing the same 
         # vertex more than one time
@@ -571,28 +624,26 @@ class Graph:
             out.append(vertex)
 
             # Iterate over the neighbours of the current vertex
-            for neighbour in adj_dict[vertex]:
+            for neighbour in self.adj_dict_[vertex]:
                 # Enqueue the unvisited neighbours and set them to true
                 if not visited[neighbour]:
                     pile.append(neighbour)
                     visited[neighbour] = True
         return out
     
-    def tarjan(self, adj_dict):
+    def tarjan(self):
         '''
             Tarjan algorithm to find strongly connected components
-            of an oriented graph G given by its adjacency list
+            of an oriented graph G
 
             Args:
-                adj_dict (dict) : The adjacency list of the graph G
-                {vertex : [neighbours_of_vertex]}
             
             Returns:
                 sccs (list) : a list of strongly connected components 
         '''
 
         # n represents the number of vertices of the graph
-        n = len(self.vertices_)
+        n = self.size_
         # initialise the array of ids ordered by their DFS
         # appearing order
         ids = np.full(n, -1, dtype=int)
@@ -627,7 +678,7 @@ class Graph:
             stack.append(at)
             on_stack[at] = True
 
-            for to in adj_dict[at]:
+            for to in self.adj_dict_[at]:
                 # recursive call to pursue the DFS
                 # if 'to' isn't visited yet
                 if ids[to] == -1:
@@ -665,15 +716,12 @@ class Graph:
 
         return sccs  
     
-    def topological_sort(self, adj_dict, random=False):
+    def topological_sort(self, random=False):
         '''
             Topological sort of an oriented graph G given by its
             successors list.
 
-            Args:
-                adj_dict (dict) : The adjacency list of the graph G
-                {vertex : [neighbours_of_vertex]}
-                
+            Args:               
                 random (bool, optional) : if False, procede by the
                 ids order in adj_dict. Else, using a random order
                 Default is False
@@ -686,7 +734,7 @@ class Graph:
         '''
 
         # We check that the number of SCC is the number of vertices
-        assert len(self.tarjan(adj_dict)) == len(adj_dict), "There's no topological \
+        assert len(self.tarjan()) == self.size_, "There's no topological \
             sort in cycled grahes"  
         
         sorted_vertices = []
@@ -702,7 +750,7 @@ class Graph:
         for origin in vertices:
             if not visited[origin]:
                 # The visited vertices by the dfs from vertex origin
-                self.depth_first_search(adj_dict, origin, visited, out, post=True)
+                self.depth_first_search(self.adj_dict_, origin, visited, out, post=True)
 
                 # Concatenate inversed order results from the left 
                 sorted_vertices = out[::-1] + sorted_vertices 
@@ -716,37 +764,35 @@ class Graph:
                 
         return np.array(sorted_vertices)
     
-    def topological_index(self, adj_dict):
+    def topological_index(self):
         '''
             Find a topological indexing of a graph 
             - rename the vertices, so they match a topological sort
 
             Args:
-                adj_dict (dict) : The adjacency list of the graph G
-                {vertex : [neighbours_of_vertex]}
+
+            Returns:
+
         '''
         out = {}
-        sort = list(self.topological_sort(adj_dict))
-        for id in adj_dict:
+        sort = list(self.topological_sort())
+        for id in self.adj_dict_:
             neighbours = []
-            for succ in adj_dict[id]:
+            for succ in self.adj_dict_[id]:
                 neighbours.append(sort.index(succ)) 
             out[sort.index(id)] = neighbours
         return out  
     
-    def valid_topo_sort(self, adj_dict, sort):
+    def valid_topo_sort(self, sort):
         """
             Check if a given sorting is a topological sort of 
-            the graph given by adj_dict
+            the graph 
 
             Args:
-                adj_dict (dict) : The adjacency list of the graph G
-                {vertex : [neighbours_of_vertex]}
-
                 sort (list) : the sort we are willing to check if
                 it is topological
         """
-        n = len(self.vertices_)
+        n = self.size_
         for u in range(n-1):
             for v in range(u, n):
                 # the index operation of python is considered as a bijection
@@ -759,7 +805,7 @@ class Graph:
                 # which means that it is not a valid topological sort 
                 # u' = sort[u] is the image of u by the defined bijection above,
                 # without a loss of generality for v'   
-                if sort[u] in adj_dict[sort[v]]:
+                if sort[u] in self.adj_dict_[sort[v]]:
                     print("problem with vertices : ", sort[u], sort[v])
                     return False
                 
@@ -794,7 +840,7 @@ class Graph:
             Attach the node r1 to r2
 
             Args:
-                pi (ndarray(len(self.vertices_))) : The list of predecessors
+                pi (ndarray(self.size_)) : The list of predecessors
                 of the graph 
                 r1 (int) : the id of the node that will get attached 
                 r2 (int) : the id of the node that will be a the parent
@@ -815,7 +861,7 @@ class Graph:
                 Default is False
 
             Returns:
-                pi (ndarray(len(self.vertices_))) : The list of predecessors
+                pi (ndarray(self.size_)) : The list of predecessors
                 of the graph        
         """
         # initialise a discrete forest
