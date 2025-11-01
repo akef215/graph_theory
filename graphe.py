@@ -62,24 +62,39 @@ class Graph:
 
             Args:
                 M (ndarray(n, n)) : The adjacency matrix
-                plusOne (bool, optional) : True if we generate the dictionnary
-                in the human readable convention {1 .. n}. Otherwise {0 .. n-1}
-                Default is True
 
             Returns:
                 dictM (dict) : a dictionnary of successors lists
 
         """
-        dictM = {}
         n = M.shape[0]
+        # Initialisation of the dict
+        dictM = {i : [] for i in range(n)}
         for i in range(n):
-            # Initialisation of the dict
-            begin = i
-            dictM[begin] = [] 
             for j in range(n):
-                end = j  
-                if M[i,j] == 1:
-                    dictM[begin].append(end)
+                if M[i,j] == True:
+                    dictM[i].append(j)
+        return dictM  
+
+    def _deMDaTL(self, M):
+        """
+            Transform the distances matrix representation to
+            the dictionnary representation
+
+            Args:
+                M (ndarray(n, n)) : The distances matrix
+
+            Returns:
+                dictM (dict) : a dictionnary of successors lists
+
+        """
+        n = M.shape[0]
+        # Initialisation of the dict
+        dictM = {i : [] for i in range(n)}
+        for i in range(n):
+            for j in range(n):
+                if M[i,j] < np.inf:
+                    dictM[i].append(j)
         return dictM   
 
     def _arcs(self):
@@ -102,14 +117,14 @@ class Graph:
                     arcs.append((i, j, float(self.M_[i,j])))
         return arcs
 
-    def load_from_matrix(self, M, valued=False):
+    def load_from_matrix(self, M):
         assert M.shape[0] == M.shape[1], "M must be a square matrix" 
         n = M.shape[0]
         self.size_ = n
         self.vertices_ = set(range(n))
         self.M_ = M
-        self.valued_ = valued
         if self.valued_:
+            self.adj_dict_ = self._deMDaTL(M)
             self.edges_ = [(i, j) for i in range(n) for j in range(n) \
                        if M[i, j] < np.inf]
         else:
@@ -154,12 +169,9 @@ class Graph:
         G = nx.DiGraph() if self.oriented_ else nx.Graph()
 
         # Ajout des arêtes
-        if self.valued_:
-            G.add_weighted_edges_from(self._arcs())
-        else:
-            for u, neighbors in self.adj_dict_.items():
-                for v in neighbors:
-                    G.add_edge(u, v)
+        for u, neighbors in self.adj_dict_.items():
+            for v in neighbors:
+                G.add_edge(u, v)
 
         # Layout
         pos = nx.spring_layout(G, seed=seed)
@@ -169,11 +181,6 @@ class Graph:
             G, pos, with_labels=True, node_color='skyblue', 
             node_size=1200, font_weight='bold', arrows=self.oriented_
         )
-
-        # Étiquettes des poids si pondéré
-        if self.valued_:
-            edge_labels = nx.get_edge_attributes(G, 'weight')
-            nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_color='red')
 
         plt.title("Graph View")
         plt.axis('off')
@@ -232,7 +239,11 @@ class Graph:
 
         '''
         Graph._check_pre_condition(u, self.size_)
-        return np.array(self.adj_dict_.get(u, []))
+        succ = self.adj_dict_.get(u)
+        if succ:
+            return np.array(succ)
+        else:
+            return []
     
     def shortest_path_from_origin(self, pi, dest, origin = 0):
         '''
@@ -253,20 +264,17 @@ class Graph:
                 If there is no path from origin to dest return an empty array
 
         '''
-        dest -= 1
-        origin -= 1
         pi = pi.copy()
-        pi -= 1
         Graph._check_pre_condition(origin, len(pi))
         Graph._check_pre_condition(dest, len(pi))
         if dest == origin:
-            return [dest + 1]
+            return [dest]
         
         pred = pi[dest]
-        path = [int(pred) + 1, dest + 1]
+        path = [int(pred), dest]
         while pred != origin and pred != -1:
             pred = pi[pred]
-            path.insert(0, int(pred)+1)
+            path.insert(0, int(pred))
 
         # The case of no path
         if pred == -1:
@@ -483,7 +491,7 @@ class Graph:
         if verbose:
             print("iter_0 :")
             print(f"distances array : {d}")
-            print(f"predecessors array : {pi+1}")
+            print(f"predecessors array : {pi}")
             print(f"opens array : {O}")
             print(f"closed array : {F}")
 
@@ -514,7 +522,7 @@ class Graph:
         
         return d, pi  
 
-    def bellman_Ford(self, origin=0):
+    def bellman_ford(self, origin=0, verbose=False):
         """
             An implementation of the Bellman-Ford algorithm
             to find the shortest path from the origin node
@@ -522,6 +530,9 @@ class Graph:
             Args:
                 origin (int, optional) : The origin node
                 Default is 0
+                verbose (boolean, optional) : Return the intermediate 
+                d and pi arrays
+                Default is False
             
             Returns:
                 d (ndarray(n)) : The shortest distances from the origin
@@ -532,9 +543,14 @@ class Graph:
         # Initialisation of the distances and predecessors arrays
         d, pi = self._init_dijkstra(origin)
 
-        for init, final, _ in self.edges_:
+        for init, final in self.edges_:
             # The relaxation process for each edge of the graph
             self._relacher(init, final, d, pi)
+            if verbose:
+                print(f"({init}, {final}) :")
+                print(f"distances array : {d}")
+                print(f"predecessors array : {pi+1}")
+                print("_________")
             
         return d, pi
     
@@ -617,7 +633,7 @@ class Graph:
             if np.all(visited):
                 break
 
-        return out
+        return np.array(out)
     
     def breadth_first_search(self, origin):
         '''
@@ -661,7 +677,7 @@ class Graph:
                 if not visited[neighbour]:
                     pile.append(neighbour)
                     visited[neighbour] = True
-        return out
+        return np.array(out)
     
     def tarjan(self):
         '''
@@ -732,7 +748,7 @@ class Graph:
                 while True:
                     node = stack.pop()
                     on_stack[node] = False
-                    scc.append(node + 1)
+                    scc.append(node)
                     if node == at:
                         break
                 
@@ -782,7 +798,7 @@ class Graph:
         for origin in vertices:
             if not visited[origin]:
                 # The visited vertices by the dfs from vertex origin
-                self.depth_first_search(self.adj_dict_, origin, visited, out, post=True)
+                self.depth_first_search(origin, visited, out, post=True)
 
                 # Concatenate inversed order results from the left 
                 sorted_vertices = out[::-1] + sorted_vertices 
