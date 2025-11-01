@@ -142,6 +142,17 @@ class Graph:
         for v in adj_dict:
             self.edges_.extend([(v, u) for u in adj_dict[v]]) 
 
+    def load_from_edges(self, edges):
+        self.edges_ = edges
+        n = max(max(u, v) for u, v in self.edges_) + 1
+        self.size_ = n
+        self.vertices_ = range(self.size_)
+        # Initialisation of the dict
+        dictE = {i : [] for i in range(n)}
+        for begin, end in edges:
+            dictE[begin].append(end)
+        self._deTLaM(dictE)    
+
     @staticmethod
     def _check_pre_condition(index, n):
         """
@@ -868,8 +879,7 @@ class Graph:
             Returns:
                 pi (ndarray(|G|)) : The array of predecessors of G
         '''
-        max_ = max(max(u, v) for u, v in self.edges_) + 1
-        return -np.ones(shape=max_, dtype=int)
+        return -np.ones(shape=self.size_, dtype=int)
 
     def _root(self, pi, v):
         """
