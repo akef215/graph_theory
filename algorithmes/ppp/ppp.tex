@@ -1,0 +1,78 @@
+\documentclass{report}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\begin{document}
+\textbf{Stratégie du point le plus proche :}\\
+\newline
+\textbf{Structures de données :}\\
+\newline
+CONSTANT \textbf{n} = 10\\
+\newline
+TYPE \textbf{Point} = enregistrement\\
+\ \ x : réel // l'abscisse\\
+\ \ y : réel // l'ordonnée\\
+FIN\\
+\newline
+TYPE \textbf{MatDist} = enregistrement\\
+\ \ taille : entier\\
+\ \ Mat : Tableau[1..n][1..n] de \textbf{réel}\\
+FIN\\
+\newline
+cycle = Tableau[1..n] de \textbf{Point}\\
+\newline
+\begin{algorithm}
+\begin{algorithmic}[1]
+  \State \textbf{Fonction} \textsc{PlusCourteDistance}(VAR\ $D$ : MatDist,\ VAR\ $L$ : cycle,\ VAR\ $Q$ : Point,\ VAR\ $c$ : cycle,\ VAR\ $taille$ : Entier)
+   \State \textbf{VAR}\ \ $i,\ j,\ min$ : Entier
+   \State \ \ \ \ \ \ \ \ \ $P,\ R$ : Point 
+   \State \textbf{DEBUT}
+     \State \ \ $P \gets Q$
+     \State \ \ $i \gets index(P)$
+     \For \ \ {$j \gets 1\ \textbf{to}\ D.taille$}
+     	\State \ \ $min \gets -1$
+        \If{$j \neq i\ \textbf{and}\ P[i, j] \leq min$}
+          \State \ \  $min \gets P[i, j]$
+        \EndIf
+     \ \ \EndFor  
+     \State \ \ $R_1.data \gets R_2.data$
+     \State \ \ $R_2.key \gets tmp_{key}$
+     \State \ \ $R_2.data \gets tmp_{data}$ 
+   \State \textbf{FIN}
+\end{algorithmic}
+\end{algorithm}
+\begin{algorithm}
+\caption{Stratégie du point le plus proche}
+\begin{algorithmic}[1]
+  \State \textbf{Procedure} \textsc{PPP}(VAR\ $D$ : MatDist,\ VAR\ $L$ : cycle,\ VAR\ $Q$ : Point,\ VAR\ $c$ : cycle,\ VAR\ $taille$ : Entier)
+	\State \textbf{VAR}\ \ $i,\ j,\ min$ : Entier
+	\State \ \ \ \ \ \ \ \ \ $P,\ R$ : Point 
+	\State \textbf{DEBUT}
+		\State $taille \gets 0$
+		\State $P \gets Q$
+     	\State $i \gets index(P)$
+		\For {$j \gets 1\ \textbf{to}\ D.taille$}
+     		\State $min \gets -1$
+			\If{$j \neq i\ \textbf{and}\ P[i, j] \leq min$}
+				\State $min \gets P[i, j]$
+			\EndIf
+		\EndFor
+    \While{$i_2 \leq \textbf{getHeader}(f, 1)$}
+      \For{$j \gets 1\ \textbf{to}\ Buf_2.Nb$}
+        \If{$Buf_2.Tab[j] \leq PV$}
+          \State $cpt \gets cpt +1$
+          \If{$cpt > b$}
+            \State \textbf{writeBlock}(f, $i_1, Buf_1$)
+            \State $i_1 \gets i_1 + 1$
+            \State $cpt \gets 1$
+            \State \textbf{readBlock}(f, $i_1, Buf_1$)
+          \EndIf
+          \State \textbf{Swap}($Buf_2.Tab[j], Buf_1.Tab[cpt]$)
+        \EndIf
+      \EndFor
+      \State \textbf{writeBlock}(f, $i_2, Buf_2$)
+      \State $i_2 \gets i_2 + 1$
+    \EndWhile
+	\State \textbf{FIN}
+\end{algorithmic}
+\end{algorithm}
+\end{document}
