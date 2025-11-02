@@ -1,2 +1,4 @@
-draft/*
-heap_demo.ipynb
+*.aux
+*.Ink
+*.gz
+*.log
