@@ -1,37 +1,47 @@
-# 🧠 Graph Project – Implementation of Graph Algorithms in Python
+# 🧭 Travelling Salesman Problem (TSP)
 
-This project provides a simple and modular implementation of key graph algorithms in Python.  
-It allows handling directed or undirected graphs, weighted or unweighted, and applying several classical graph theory algorithms such as **Dijkstra**, **Bellman-Ford**, **Tarjan**, **Floyd-Warshall**, etc.
-
----
-
-## 📚 Available Algorithms
-
-| Algorithm | Description | Approximate Complexity |
-|-----------|-------------|----------------------|
-| **Dijkstra** | Finds the shortest path from a source in a weighted graph (without negative weights). | O(V²) |
-| **Bellman-Ford** | Computes shortest paths even with negative weights. | O(VE) |
-| **Floyd-Warshall** | Finds all-pairs shortest paths. | O(V³) |
-| **Roy-Warshall** | Computes the transitive closure (reachability between vertices). | O(V³) |
-| **Tarjan** | Detects strongly connected components in a directed graph. | O(V+E) |
-| **DFS (Depth-First Search)** | Performs a depth-first traversal of the graph. | O(V+E) |
-| **BFS (Breadth-First Search)** | Performs a breadth-first traversal of the graph. | O(V+E) |
-| **Topological Sort** | Orders the vertices of a directed acyclic graph (DAG). | O(V+E) |
-| **Union-Find** | Finds connected components in the graph. | O(V+E) |
+Cette branche contient l’implémentation et l’analyse de l’algorithme du **Problème du Voyageur de Commerce (TSP)**, dans le cadre du module **Algorithmes des graphes**.
 
 ---
 
-## ⚙️ Installation
+## 📘 Objectif
 
-1. **Clone the project**
-   ```bash
-   git clone https://github.com/<your-username>/<your-repo>.git
-   cd <your-repo>
-   
-2. **Create a virtual environment** (optional but recommended)   
-python -m venv venv
-source venv/bin/activate   # On Windows: venv\Scripts\activate
+Le **TSP** consiste à trouver le **plus court cycle** passant une seule fois par chaque ville (sommet) et revenant à la ville de départ.  
+Ce problème est un classique de l’optimisation combinatoire et illustre les méthodes de recherche de chemin optimal.
 
-3. **Install dependencies**
-  ```bash
-  pip install -r requirements.txt 
+---
+
+## ⚙️ Contenu de la branche
+
+- `tsp.py` — Implémentation principale de l’algorithme du TSP  
+- `tsp_demo.ipynb` — Notebook de démonstration et visualisation des résultats  
+- `graph.py` — Classe d’aide pour la représentation du graphe  
+- `utils.py` — Fonctions utilitaires (distance, génération aléatoire de points, etc.)
+
+---
+
+## 🧩 Algorithmes implémentés
+
+- **Nearest Neighbor (Plus proche voisin)** — Heuristique gloutonne simple  
+- **2-opt** — Amélioration locale du chemin trouvé  
+
+---
+
+## 📊 Visualisation
+
+Une partie du code permet de **visualiser le graphe et le chemin optimal** à l’aide de `matplotlib`.  
+Chaque exécution peut générer une figure illustrant le circuit minimal trouvé.
+
+---
+
+## 🚀 Exécution
+
+```bash
+# Cloner le dépôt
+git clone <url-du-repo>
+
+# Se placer sur la branche TSP
+git checkout TSP
+
+# Exécuter le script principal
+python tsp.py
