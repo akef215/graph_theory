@@ -884,12 +884,21 @@ class Graph:
     def _root(self, pi, v):
         """
             Find the root of a node v using the predecessors list
+            Using the paths compression heuristic
         """
-        # we loop until reaching the root caracterized by pi[root] == -1
-        while pi[v] != -1:
+        i = v
+        heigh = 0
+        # we loop until reaching the root caracterized by pi[root] <= -1
+        while pi[v] > -1:
             # we keep going up in the arborescence
             v = pi[v]
-        return v
+            heigh += 1
+        r = v 
+        while pi[i] > -1:
+            j = i
+            i = pi[i]
+            pi[j] = r   
+        return r, heigh
 
     def _union(self, pi, r1, r2):
         """
@@ -905,7 +914,16 @@ class Graph:
         """
         # attach the node r1 to r2
         if r1 != r2:
-            pi[r1] = r2
+            # attach the node r1 to r2
+            # when |r1| < |r2|
+            if pi[r1] > pi[r2]:
+                pi[r2] = pi[r1] + pi[r2]
+                pi[r1] = r2
+            # attach the node r2 to r1
+            # when |r2| <= |r1|    
+            else:
+                pi[r1] = pi[r1] + pi[r2]
+                pi[r2] = r1    
 
     def union_find(self, verbose=False):
         """
@@ -927,14 +945,16 @@ class Graph:
             # Find part:
             # find the roots of the extremeties of the edges
             # in the random forest 
-            r1 = self._root(pi, v_begin)
-            r2 = self._root(pi, v_end)
+            r1, h1 = self._root(pi, v_begin)
+            r2, h2 = self._root(pi, v_end)
 
             # Union part:
             self._union(pi, r1, r2)
 
             if verbose:
                 print(f"Union {r1} and {r2}: {pi}")
+                print(f"    nb_iter to find {r1} : {h1}")
+                print(f"    nb_iter to find {r2} : {h2}")
                 print("_________")
         
         return pi
