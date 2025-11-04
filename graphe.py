@@ -17,6 +17,11 @@ class Graph:
         w : E -> R
             (u, v) |-> w(u, v)
 
+        in this implementation, w will be represented as a list
+        of tuples (u, v, w) where u and v communicate the input edge
+        and w is w(u, v).
+        When the graph is not valued, w will be None         
+
         so,
         G = (V, E, w) is a graph and V, E and w are called ,resp.
         Vertices set, Edges set and the weight of the graph     
@@ -24,7 +29,7 @@ class Graph:
         Attributs:
             vertices (set) : the vertices set of G
             edges (list) : the edges set of G
-            w (func) : the weight function of G
+            w (list) : the weights of G
             oriented (boolean) : True if the Graph is oriented.
                 False, otherwisr.
                 Default is False
@@ -38,21 +43,29 @@ class Graph:
 
     # Constructor
     def __init__(self, oriented=False, valued=False):
+        # inner structure
         self.vertices_ = set() 
         self.edges_ = []
-        self.size_ = 0
         self.w_ = None
+        self.size_ = 0
+
+        # properties
         self.oriented_ = oriented
         self.valued_ = valued
+
+        # representations
         self.M_ = None
         self.adj_dict_ = None
 
     def _deTLaM(self, adj_dict):
+        """
+            
+        """
         n = len(adj_dict)
         M = np.zeros((n,n), dtype=int)
         for i in adj_dict:
             for j in adj_dict[i]:
-                M[i][j] = 1
+                M[i, j] = 1
         return M 
 
     def _deMaTL(self, M):
@@ -122,15 +135,23 @@ class Graph:
         n = M.shape[0]
         self.size_ = n
         self.vertices_ = set(range(n))
-        self.M_ = M
+        M_copy = M.copy()
+        if not self.oriented_:
+            for i in range(self.size_):
+                for j in range(self.size_):
+                    if M_copy[i, j]: M_copy[j, i] = M_copy[i, j]
+        self.M_ = M_copy
         if self.valued_:
-            self.adj_dict_ = self._deMDaTL(M)
+            self.adj_dict_ = self._deMDaTL(self.M_)
             self.edges_ = [(i, j) for i in range(n) for j in range(n) \
-                       if M[i, j] < np.inf]
+                       if self.M_[i, j] < np.inf]
+            self.w_ = [(i, j, self.M_[i, j]) for i in range(n) for j in range(n) \
+                       if self.M_[i, j] < np.inf]
         else:
-            self.adj_dict_ = self._deMaTL(M)
+            self.adj_dict_ = self._deMaTL(self.M_)
             self.edges_ = [(i, j) for i in range(n) for j in range(n) \
-                       if M[i, j] == True]
+                       if self.M_[i, j] == True]
+            self.w_ = None
             
     def load_from_dict(self, adj_dict):
         n = max(adj_dict.keys()) + 1
@@ -139,10 +160,13 @@ class Graph:
         self.vertices_ = set(adj_dict.keys())
         self.M_ = self._deTLaM(adj_dict)
         self.edges_ = []
+        self.valued_ = False
+        self.w_ = None
         for v in adj_dict:
             self.edges_.extend([(v, u) for u in adj_dict[v]]) 
 
     def load_from_edges(self, edges):
+        assert not self.valued_, "can't call this method on a valued graph"
         self.edges_ = edges
         n = max(max(u, v) for u, v in self.edges_) + 1
         self.size_ = n
@@ -151,7 +175,28 @@ class Graph:
         dictE = {i : [] for i in range(n)}
         for begin, end in edges:
             dictE[begin].append(end)
-        self._deTLaM(dictE)    
+            if not self.oriented_:
+                dictE[end].append(begin)
+        self._deTLaM(dictE) 
+
+    def load_from_weighted_edges(self, edges):
+        assert self.valued_, "must call this method on a valued graph"
+        self.edges_ = [(u, v) for u, v, _ in edges]
+        self.w_ = edges
+        n = max(max(self.edges_)) + 1
+        self.size_ = n
+        self.vertices_ = range(self.size_)
+        # Initialisation of the dict
+        dictE = {i : [] for i in range(n)}
+        for begin, end in edges:
+            dictE[begin].append(end)
+            if not self.oriented_:
+                dictE[end].append(begin)
+        self.M_ = np.inf*np.ones(shape=(n, n), dtype=float)
+        for i, j, w in self.w_:
+            self.M_[i,j] = w
+            if self.oriented_:
+                self.M_[j,i] = self.M_[i,j]
 
     @staticmethod
     def _check_pre_condition(index, n):
@@ -180,9 +225,7 @@ class Graph:
         G = nx.DiGraph() if self.oriented_ else nx.Graph()
 
         # Ajout des arêtes
-        for u, neighbors in self.adj_dict_.items():
-            for v in neighbors:
-                G.add_edge(u, v)
+        G.add_edges_from(self.edges_)
 
         # Layout
         pos = nx.spring_layout(G, seed=seed)
@@ -885,6 +928,15 @@ class Graph:
         """
             Find the root of a node v using the predecessors list
             Using the paths compression heuristic
+
+            Args:
+                pi (ndarray(self.size_)) : The forest of connex components
+                represented by a predecessor array
+                v (int) : the input node id
+
+            Returns:
+                r (int) : the root id
+                heigh (int) : the of the node v 
         """
         i = v
         heigh = 0
@@ -936,7 +988,9 @@ class Graph:
 
             Returns:
                 pi (ndarray(self.size_)) : The list of predecessors
-                of the graph        
+                of the graph 
+                connex_components (dict) : The dictionnary of the connex 
+                components {root : [nodes]}       
         """
         # initialise a discrete forest
         pi = self._discrete_forest()
@@ -953,9 +1007,14 @@ class Graph:
 
             if verbose:
                 print(f"Union {r1} and {r2}: {pi}")
-                print(f"    nb_iter to find {r1} : {h1}")
-                print(f"    nb_iter to find {r2} : {h2}")
+                print(f"    nb_iter to find {r1} : {h1+1}")
+                print(f"    nb_iter to find {r2} : {h2+1}")
                 print("_________")
         
-        return pi
+        roots = np.where(pi < 0)[0]
+        connex_components = {root : [] for root in roots}
+        for vertex in range(self.size_):
+            connex_components[self._root(pi, vertex)[0]].append(vertex)         
+        
+        return pi, connex_components
     
