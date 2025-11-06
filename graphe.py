@@ -11,7 +11,7 @@ class Graph:
         will consider it as a subset of N including zero)
 
         Let E be a set of couples of V, i.e
-        E = {(u, v)/ u $in$ V and v $in$ V)}
+        E = {(u, v)/ u $\\in$ V and v $\\in$ V)}
 
         Let w be a function, i.e
         w : E -> R
@@ -145,8 +145,8 @@ class Graph:
             self.adj_dict_ = self._deMDaTL(self.M_)
             self.edges_ = [(i, j) for i in range(n) for j in range(n) \
                        if self.M_[i, j] < np.inf]
-            self.w_ = [(i, j, self.M_[i, j]) for i in range(n) for j in range(n) \
-                       if self.M_[i, j] < np.inf]
+            self.w_ = {(i, j) : self.M_[i, j] for i in range(n) for j in range(n) \
+                       if self.M_[i, j] < np.inf}
         else:
             self.adj_dict_ = self._deMaTL(self.M_)
             self.edges_ = [(i, j) for i in range(n) for j in range(n) \
@@ -299,6 +299,9 @@ class Graph:
         else:
             return []
     
+    def weight(self, u, v):
+        return self.w_((u, v))
+
     def shortest_path_from_origin(self, pi, dest, origin = 0):
         '''
             Find the shortest path from the vertex origin to the vertex dest
@@ -347,7 +350,7 @@ class Graph:
             
             Raise:
                 ValueError if the node of the origin doesn't belong to the nodes set
-                            Or if n is not a positive integer
+                Or if n is not a positive integer
 
             Returns:
                 d (ndarray(1, n)) : The initialised distances, from the node s, array 

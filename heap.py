@@ -1,3 +1,4 @@
+from bigtree import Node
 class Heap:
     """
         A python implementation of the heap data structure
@@ -15,6 +16,22 @@ class Heap:
         assert type == 'min' or type == 'max', "The type must be min or max"
         self.nodes_ = [] # [(value, priority)]
         self.type_ = type
+        self.last_ = 0
+
+    def init_heap(self, tas, last):
+        self.reset()
+        for val, priority in tas:
+            self.enqueue(val, priority)
+        self.last_ = last - 1 
+
+    def reset(self):
+        self.nodes_ = []
+        self.last_ = 1       
+ 
+    def copy(self):
+        new_heap = Heap(self.type_)
+        new_heap.init_heap(self.nodes_.copy(), self.last_ + 1)
+        return new_heap
 
     def parent(self, index):
         """
@@ -72,6 +89,7 @@ class Heap:
             self.nodes_[current], self.nodes_[pere]
             current = pere
             pere = self.parent(current) 
+        self.last_ -= 1    
 
     def _heapify_down(self, index):
         """
@@ -115,5 +133,27 @@ class Heap:
         if self.nodes_:
             self.nodes_[0] = last
             self._heapify_down(0)
+        self.last_ -= 1    
 
         return out
+
+    def get_nodes(self):
+        return [value for value, _ in self.nodes_]
+    
+    def get_priorities(self):
+        return [priority for _, priority in self.nodes_]
+    
+    def get_last(self):
+        return self.last_
+
+    def set_last(self, last):
+        self.last_ = last
+
+    def show(self, size_view=None):
+        if size_view is None:
+            self_view = len(self.nodes_)
+        print("The Heap :")
+        print(f"|-- Values : {self.get_nodes()[:size_view]}")
+        print(f"|-- Priorities : {self.get_priorities()[:size_view]}")
+        print(f"|-- last : {self.get_last()}")
+        print("_________")
