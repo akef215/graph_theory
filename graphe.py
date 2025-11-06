@@ -300,7 +300,7 @@ class Graph:
             return []
     
     def weight(self, u, v):
-        return self.w_((u, v))
+        return self.w_[(u, v)]
 
     def shortest_path_from_origin(self, pi, dest, origin = 0):
         '''

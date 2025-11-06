@@ -1,4 +1,3 @@
-from bigtree import Node
 class Heap:
     """
         A python implementation of the heap data structure
@@ -15,22 +14,32 @@ class Heap:
     def __init__(self, type='min'):
         assert type == 'min' or type == 'max', "The type must be min or max"
         self.nodes_ = [] # [(value, priority)]
+        self.positions_ = {} 
         self.type_ = type
-        self.last_ = 0
+        
+    def _swap(self, i, j):
+        # swap nodes
+        self.nodes_[i], self.nodes_[j] = self.nodes_[j], self.nodes_[i]
+        # update positions
+        v1, _ = self.nodes_[i]
+        v2, _ = self.nodes_[j]
+        self.positions_[v1] = i
+        self.positions_[v2] = j
 
-    def init_heap(self, tas, last):
-        self.reset()
-        for val, priority in tas:
-            self.enqueue(val, priority)
-        self.last_ = last - 1 
+    def init_heap(self, tas):
+        self.nodes_ = list(tas)
+        self.positions_ = {v: i for i, (v, _) in enumerate(self.nodes_)}
+        for i in reversed(range(len(self.nodes_) // 2)):
+            self._heapify_down(i)
 
     def reset(self):
         self.nodes_ = []
-        self.last_ = 1       
- 
+        self.positions_ = {}
+             
     def copy(self):
         new_heap = Heap(self.type_)
-        new_heap.init_heap(self.nodes_.copy(), self.last_ + 1)
+        new_heap.init_heap(self.nodes_.copy()) 
+        new_heap.positions_ = self.positions_.copy()
         return new_heap
 
     def parent(self, index):
@@ -77,19 +86,16 @@ class Heap:
             return self.priority(x) < self.priority(y)
         else:
             return self.priority(x) > self.priority(y) 
- 
-    def enqueue(self, value, priority):
-        n = len(self.nodes_)
-        self.nodes_.append((value, priority))
-        current = n
-        pere = self.parent(current)
-        while pere >= 0 and self._eval(pere, current):
-            # swap pere and current
-            self.nodes_[pere], self.nodes_[current] = \
-            self.nodes_[current], self.nodes_[pere]
-            current = pere
-            pere = self.parent(current) 
-        self.last_ -= 1    
+
+    def _heapify_up(self, index):
+        """Move a node up to restore heap property."""
+        while index > 0:
+            p = self.parent(index)
+            if self._eval(p, index):
+                self._swap(p, index)
+                index = p
+            else:
+                break
 
     def _heapify_down(self, index):
         """
@@ -115,26 +121,27 @@ class Heap:
 
             # If current and child are in wrong order -> swap
             if self._eval(index, best_child):
-                self.nodes_[index], self.nodes_[best_child] = self.nodes_[best_child], self.nodes_[index]
+                self._swap(index, best_child)
                 index = best_child
             else:
-                break 
-            
+                break
+
+    def enqueue(self, value, priority):
+        self.nodes_.append((value, priority))
+        i = len(self.nodes_) - 1
+        self.positions_[value] = i
+        self._heapify_up(i) 
+
     def dequeue(self):
-        """
-            Dequeue operation from the heap
-        """
         if not self.nodes_:
             return None
 
-        out = self.nodes_[0]
-        last = self.nodes_.pop()
+        self._swap(0, len(self.nodes_) - 1)
+        out = self.nodes_.pop()
+        del self.positions_[out[0]]
 
         if self.nodes_:
-            self.nodes_[0] = last
             self._heapify_down(0)
-        self.last_ -= 1    
-
         return out
 
     def get_nodes(self):
@@ -142,18 +149,27 @@ class Heap:
     
     def get_priorities(self):
         return [priority for _, priority in self.nodes_]
-    
-    def get_last(self):
-        return self.last_
 
-    def set_last(self, last):
-        self.last_ = last
-
-    def show(self, size_view=None):
-        if size_view is None:
-            self_view = len(self.nodes_)
+    def show(self):
         print("The Heap :")
-        print(f"|-- Values : {self.get_nodes()[:size_view]}")
-        print(f"|-- Priorities : {self.get_priorities()[:size_view]}")
-        print(f"|-- last : {self.get_last()}")
+        print(f"|-- Values : {self.get_nodes()}")
+        print(f"|-- Priorities : {self.get_priorities()}")
         print("_________")
+
+    def decrease_key(self, value, new_priority):
+        if value not in self.positions_:
+            return
+
+        i = self.positions_[value]
+        old_value, old_priority = self.nodes_[i]
+
+        if self.type_ == 'min' and new_priority >= old_priority:
+            return
+        if self.type_ == 'max' and new_priority <= old_priority:
+            return
+
+        self.nodes_[i] = (value, new_priority)
+        self._heapify_up(i)
+
+    def is_empty(self):
+        return len(self.nodes_) == 0
