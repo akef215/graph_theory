@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import networkx as nx
 from collections import deque
+from heap import Heap
 
 class Graph:
     """
@@ -578,6 +579,31 @@ class Graph:
                 print(f"closed array : \n{F}")
         
         return d, pi  
+
+    def dijkstra_heap(self, origin=0, verbose=False):
+        H = Heap(type='min')
+        # Initialise the distances and predecessors arrays
+        d, pi = self._init_dijkstra(origin)
+
+        # Initialise the 'min' heap
+        tas = zip(self.vertices_, d)
+        H.init_heap(tas)
+        
+        while not H.is_empty():
+            curr_vertex, curr_priority = H.dequeue()
+            succ_curr_vertex = self.next(curr_vertex)
+            if verbose:
+                print(f"current vertex :\n{curr_vertex} -> {succ_curr_vertex}")
+            for vertex in succ_curr_vertex:
+                if d[vertex] > d[curr_vertex] + self.weight(curr_vertex, vertex):
+                    d[vertex] = d[curr_vertex] + self.weight(curr_vertex, vertex)
+                    pi[vertex] = curr_vertex
+                    # Update the heap associated
+                    H.update_priority(vertex, d[vertex])
+                    if verbose:
+                        H.show()
+
+        return d, pi 
 
     def bellman_ford(self, origin=0, verbose=False):
         """
