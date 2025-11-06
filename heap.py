@@ -82,6 +82,10 @@ class Heap:
         return self.nodes_[index][0]
     
     def _eval(self, x, y):
+        """
+            check if x and y doesn't respect the
+            priority order of the heap
+        """
         if self.type_ == 'max':
             return self.priority(x) < self.priority(y)
         else:
@@ -89,6 +93,7 @@ class Heap:
 
     def _heapify_up(self, index):
         """Move a node up to restore heap property."""
+        assert 0 <= index < len(self.nodes_)
         while index > 0:
             p = self.parent(index)
             if self._eval(p, index):
@@ -156,12 +161,12 @@ class Heap:
         print(f"|-- Priorities : {self.get_priorities()}")
         print("_________")
 
-    def decrease_key(self, value, new_priority):
+    def update_priority(self, value, new_priority):
         if value not in self.positions_:
             return
 
         i = self.positions_[value]
-        old_value, old_priority = self.nodes_[i]
+        old_priority = self.nodes_[i][1]  # <-- extract priority
 
         if self.type_ == 'min' and new_priority >= old_priority:
             return
@@ -169,7 +174,18 @@ class Heap:
             return
 
         self.nodes_[i] = (value, new_priority)
-        self._heapify_up(i)
+
+        # Decide heapify direction
+        if self.type_ == 'min':
+            if new_priority < old_priority:
+                self._heapify_up(i)
+            else:
+                self._heapify_down(i)
+        else:  # max-heap
+            if new_priority > old_priority:
+                self._heapify_up(i)
+            else:
+                self._heapify_down(i)
 
     def is_empty(self):
         return len(self.nodes_) == 0
