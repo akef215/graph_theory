@@ -1047,3 +1047,53 @@ class Graph:
         
         return pi, connex_components
     
+    def kruskal(self, verbose=False):
+        assert self.valued_, "The graph must be valued"
+
+        # sort the edges of the graph based on their weight
+        G = self.w_.copy()
+        G.sort(key= lambda x : x[2])
+
+        # ACM is a the minimum spanning tree
+        ACM = []
+        n = self.size_
+        pi = self.discrete_forest(n)
+        for vI, vF, w in G:
+            r1, _ = self.root(pi, vI)
+            r2, _ = self.root(pi, vF)
+
+            # the extremities of the edge belong to distinct component 
+            # to avoid creating cycles
+            if r1 != r2:
+                ACM.append((vI, vF, w))
+                self.union(pi, r1, r2)
+        return ACM
+    
+    def cocyle(self, T):
+        return [(u, v, w) for u, v, w in self.w_ if (u in T) ^ (v in T)]
+
+    def prim(self, origin=1):
+        if not self.vertices_:
+            return []
+        if origin is None:
+            origin = next(iter(self.vertices_))
+        if origin not in self.vertices_:
+            raise ValueError("origin not in graph")
+
+        T = {origin}
+        ACM = []
+        # loop until all self.vertices_ are in T
+        while T != self.vertices_:
+            # candidate edges with exactly one endpoint in T (undirected)
+            cocyle_ = self.cocyle(T)
+            if not cocyle_:
+                raise ValueError("Graph is not connected; no spanning tree exists")
+            
+            # We chose the minimal weighted edge of the cocyle
+            u, v, w = min(cocyle_, key=lambda x: x[2])
+
+            # add the new vertex (the one not already in T)
+            new_vertex = v if u in T else u
+            T.add(new_vertex)
+            ACM.append((u, v, w))
+        return ACM  
