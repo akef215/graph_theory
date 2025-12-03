@@ -171,7 +171,7 @@ class Graph:
         self.edges_ = edges
         n = max(max(u, v) for u, v in self.edges_) + 1
         self.size_ = n
-        self.vertices_ = range(self.size_)
+        self.vertices_ = set(range(self.size_))
         # Initialisation of the dict
         dictE = {i : [] for i in range(n)}
         for begin, end in edges:
@@ -183,18 +183,23 @@ class Graph:
     def load_from_weighted_edges(self, edges):
         assert self.valued_, "must call this method on a valued graph"
         self.edges_ = [(u, v) for u, v, _ in edges]
-        self.w_ = edges
+        self.w_ = {}
+        for u, v, w in edges:
+            self.w_[(u, v)] = w
+            if not self.oriented_:
+                self.w_[(v, u)] = w
         n = max(max(self.edges_)) + 1
         self.size_ = n
-        self.vertices_ = range(self.size_)
+        self.vertices_ = set(range(self.size_))
         # Initialisation of the dict
-        dictE = {i : [] for i in range(n)}
-        for begin, end in edges:
-            dictE[begin].append(end)
+        dictE = dict()
+        for begin, end in self.edges_:
+            dictE.setdefault(begin, []).append(end)
             if not self.oriented_:
-                dictE[end].append(begin)
+                dictE.setdefault(end, []).append(begin)
+        self.adj_dict_ = dictE        
         self.M_ = np.inf*np.ones(shape=(n, n), dtype=float)
-        for i, j, w in self.w_:
+        for i, j, w in edges:
             self.M_[i,j] = w
             if self.oriented_:
                 self.M_[j,i] = self.M_[i,j]
@@ -212,7 +217,7 @@ class Graph:
         
         if index < 0 or index >= n:
             raise ValueError("index out of range")    
-
+  
     def plot_graph(self, seed=42, show=True):
         """
         Display the graph.
@@ -581,6 +586,26 @@ class Graph:
         return d, pi  
 
     def dijkstra_heap(self, origin=0, verbose=False):
+        '''      
+            Args:
+                origin (int, optional) : The node of the origin of the shortest path.
+                Default is 0
+                verbose (boolean, optional) : Return the intermediate 
+                d, pi, O and F arrays
+                Default is False 
+
+            Raises:
+                ValueError if the origin node origin doesn't belong to the nodes set
+                AssertionError if the Distance matrix contains negative values
+
+            Returns:
+                d (ndarray(n)) : The minimal distances, from the node origin, array 
+                pi (ndarray(n)) : The array of predecessors in the shortest path 
+                from the node origin
+
+        '''
+        Graph._check_pre_condition(origin, self.size_)
+
         H = Heap(type='min')
         # Initialise the distances and predecessors arrays
         d, pi = self._init_dijkstra(origin)
@@ -1070,9 +1095,9 @@ class Graph:
         return ACM
     
     def cocyle(self, T):
-        return [(u, v, w) for u, v, w in self.w_ if (u in T) ^ (v in T)]
+        return [(u, v, self.weight(u, v)) for (u, v) in self.w_ if (u in T) ^ (v in T)]
 
-    def prim(self, origin=1):
+    def prim(self, origin=0):
         if not self.vertices_:
             return []
         if origin is None:
@@ -1082,6 +1107,7 @@ class Graph:
 
         T = {origin}
         ACM = []
+        poids = 0
         # loop until all self.vertices_ are in T
         while T != self.vertices_:
             # candidate edges with exactly one endpoint in T (undirected)
@@ -1096,4 +1122,73 @@ class Graph:
             new_vertex = v if u in T else u
             T.add(new_vertex)
             ACM.append((u, v, w))
-        return ACM  
+            poids += w
+        return ACM, poids  
+
+    def prim_heap(self, origin=0, verbose=False):
+        """
+            Une implementation efficace de l'algorithme de Prim
+            pour trouver un arbre de poids minimum d'un graphe G
+            en utilisant un tas de type min, où la priorité dans
+            ce tas est défini par le poids d'arrete qui relie le
+            sommet en question avec l'ACM, np.inf sinon
+
+            Args:
+                origin (int, optional) : The node of the origin of the shortest path.
+                Default is 0
+                verbose (boolean, optional) : Return the intermediate 
+                views of the heap
+                Default is False
+
+            Raises:
+                ValueError if the origin node origin doesn't belong to the nodes set
+                AssertionError if the Distance matrix contains negative values
+
+            Returns:
+                pi (ndarray(n)) : The array of predecessors of the MST
+                d (ndarray(n)) : d[v] = G.weight(pi[v], v), 
+                                 s.t : v \\belongs G.vertices_  
+
+            Abreviation:
+                MST : Minimal Spanning Tree   
+        """
+        Graph._check_pre_condition(origin, self.size_)
+
+        H = Heap(type='min')
+        # Initialise the distances and predecessors arrays
+        d, pi = self._init_dijkstra(origin)
+
+        # Initialise the 'min' heap
+        tas = zip(self.vertices_, d)
+        H.init_heap(tas)
+        MST = []
+        while not H.is_empty():
+            # get the nearest vertex to the MST
+            curr_vertex, curr_priority = H.dequeue()
+
+            # the successors of curr_vertex
+            succ_curr_vertex = self.next(curr_vertex)
+            if verbose:
+                print(f"current vertex :\n{curr_vertex} -> {succ_curr_vertex}")
+
+            for vertex in succ_curr_vertex:
+                # Check if vertex is in the heap
+                # and if we can improve its estimation  
+                if vertex in H.positions_ and d[vertex] > self.weight(curr_vertex, vertex):
+                    # Update the estimation
+                    d[vertex] = self.weight(curr_vertex, vertex)
+                    pi[vertex] = curr_vertex
+
+                    # Add curr_vertex -> vertex to the MST
+                    MST.append((curr_vertex, vertex, d[vertex]))
+                   
+
+                    # Update the heap
+                    H.update_priority(vertex, d[vertex])
+                    if verbose:
+                        H.show()
+        poids = 0
+        for p in d:
+            poids += p                
+        return pi, d, poids     
+               
