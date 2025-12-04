@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from collections import deque
 from heap import Heap
+from bigtree import Node
 
 class Graph:
     """
@@ -218,6 +219,30 @@ class Graph:
         if index < 0 or index >= n:
             raise ValueError("index out of range")    
   
+    @staticmethod
+    def draw_forest(pi):
+        def build_tree(root, tree):
+            parent = Node(str(root + 1))
+            if tree.get(root) is None:
+                return parent
+            for c in tree[root]:
+                child = build_tree(c, tree)
+                child.parent = parent  
+            return parent
+        
+        children = dict()
+        forest = []
+        for i, v in enumerate(pi):
+            if v < 0:
+                forest.append(i)
+                children.setdefault(i, [])
+            else:   
+                children.setdefault(v, []).append(i)
+
+        for root in forest:
+            build_tree(root, children).vshow() 
+            print("__________")
+
     def plot_graph(self, seed=42, show=True):
         """
         Display the graph.
@@ -1076,28 +1101,32 @@ class Graph:
         assert self.valued_, "The graph must be valued"
 
         # sort the edges of the graph based on their weight
-        G = self.w_.copy()
+        G = []
+        for u, v in self.w_:
+            G.append((u, v, self.w_[(u, v)]))
         G.sort(key= lambda x : x[2])
 
         # ACM is a the minimum spanning tree
         ACM = []
-        n = self.size_
-        pi = self.discrete_forest(n)
+        poids = 0
+        pi = self._discrete_forest()
         for vI, vF, w in G:
-            r1, _ = self.root(pi, vI)
-            r2, _ = self.root(pi, vF)
+            r1, _ = self._root(pi, vI)
+            r2, _ = self._root(pi, vF)
 
             # the extremities of the edge belong to distinct component 
             # to avoid creating cycles
             if r1 != r2:
                 ACM.append((vI, vF, w))
-                self.union(pi, r1, r2)
-        return ACM
+                poids += w
+                self._union(pi, r1, r2)
+        return pi, ACM, poids
     
     def cocyle(self, T):
         return [(u, v, self.weight(u, v)) for (u, v) in self.w_ if (u in T) ^ (v in T)]
 
     def prim(self, origin=0):
+        assert np.any((self.union_find()[0] < 0).sum() == 1), "The graph must be connected!"
         if not self.vertices_:
             return []
         if origin is None:
@@ -1142,29 +1171,29 @@ class Graph:
 
             Raises:
                 ValueError if the origin node origin doesn't belong to the nodes set
-                AssertionError if the Distance matrix contains negative values
+                AssertionError if the Graph is not connected 
 
             Returns:
                 pi (ndarray(n)) : The array of predecessors of the MST
-                d (ndarray(n)) : d[v] = G.weight(pi[v], v), 
+                key (ndarray(n)) : key[v] = G.weight(pi[v], v), 
                                  s.t : v \\belongs G.vertices_  
 
             Abreviation:
                 MST : Minimal Spanning Tree   
         """
         Graph._check_pre_condition(origin, self.size_)
+        assert np.any((self.union_find()[0] < 0).sum() == 1), "The graph must be connected!"
 
         H = Heap(type='min')
         # Initialise the distances and predecessors arrays
-        d, pi = self._init_dijkstra(origin)
+        key, pi = self._init_dijkstra(origin)
 
         # Initialise the 'min' heap
-        tas = zip(self.vertices_, d)
+        tas = zip(self.vertices_, key)
         H.init_heap(tas)
-        MST = []
         while not H.is_empty():
             # get the nearest vertex to the MST
-            curr_vertex, curr_priority = H.dequeue()
+            curr_vertex, _ = H.dequeue()
 
             # the successors of curr_vertex
             succ_curr_vertex = self.next(curr_vertex)
@@ -1174,21 +1203,16 @@ class Graph:
             for vertex in succ_curr_vertex:
                 # Check if vertex is in the heap
                 # and if we can improve its estimation  
-                if vertex in H.positions_ and d[vertex] > self.weight(curr_vertex, vertex):
+                if vertex in H.positions_ and key[vertex] > self.weight(curr_vertex, vertex):
                     # Update the estimation
-                    d[vertex] = self.weight(curr_vertex, vertex)
+                    key[vertex] = self.weight(curr_vertex, vertex)
                     pi[vertex] = curr_vertex
 
-                    # Add curr_vertex -> vertex to the MST
-                    MST.append((curr_vertex, vertex, d[vertex]))
-                   
-
                     # Update the heap
-                    H.update_priority(vertex, d[vertex])
+                    H.update_priority(vertex, key[vertex])
                     if verbose:
                         H.show()
-        poids = 0
-        for p in d:
-            poids += p                
-        return pi, d, poids     
+               
+        return pi, key, key.sum()     
+    
                
