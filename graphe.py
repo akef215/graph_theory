@@ -179,7 +179,7 @@ class Graph:
             dictE[begin].append(end)
             if not self.oriented_:
                 dictE[end].append(begin)
-        self._deTLaM(dictE) 
+        self.M_ = self._deTLaM(dictE) 
 
     def load_from_weighted_edges(self, edges):
         assert self.valued_, "must call this method on a valued graph"
@@ -1215,4 +1215,66 @@ class Graph:
                
         return pi, key, key.sum()     
     
-               
+    def dual_edges(self):
+        first = [(i, *self.edges_[i]) for i in range(len(self.edges_))]
+        first.sort(key = lambda x : x[2])
+
+        last = [(i, *self.edges_[i]) for i in range(len(self.edges_))]
+        last.sort(key = lambda x : x[1])
+
+        i = 0
+        j = 0
+        edges_dual = []
+        while i < len(first) and j < len(last):
+            if first[i][2] == last[j][1]:
+                edges_dual.append((first[i][0], last[j][0]))
+
+            i_tmp = i
+            i += 1    
+            # fixe i et continue avec j
+            while (i < len(first)) and (first[i][2] == last[j][1]):
+                edges_dual.append((first[i][0], last[j][0]))
+                i += 1
+
+            j += 1  
+            i, i_tmp = i_tmp, i  
+            # fixe j et continue avec i
+            while (j < len(last)) and (first[i][2] == last[j][1]):
+                edges_dual.append((first[i][0], last[j][0]))
+                j += 1
+            i = i_tmp
+
+            if (i < len(first)) and (j < len(last)):
+                if first[i][2] < last[j][1]:
+                    i += 1
+
+                if last[j][1] < first[i][2]:
+                    j += 1 
+          
+        return edges_dual            
+
+    def dual(self):
+        """
+            The dual of a graph G, is a graph <S_d, A_d> where, 
+            S_d = A, 
+            Let be s_1 = (u_1, v_1), s_2 = (u_2, v_2) \\in A_d,
+            [(s_1, s_2) \\in A_d] iff (v_1 == u_2)  
+
+            Returns:
+                D (Graph) : The dual of the graph G
+                map (dict : D.vertices_ -> S_d) : Decode the convention of
+                integers as vertices to the original edges
+        """
+        D = Graph(oriented=True)
+        map = {i : v for i, v in enumerate(self.edges_)} 
+        _edges = self.dual_edges()
+
+        # To ensure that the loading from edges 
+        # will provide the correct set of vertices 
+        size = len(self.edges_) - 1
+        _edges.append((size, size))
+        D.load_from_edges(_edges)
+
+        # We get back the correct list of edges
+        D.edges_.pop()
+        return D, map
